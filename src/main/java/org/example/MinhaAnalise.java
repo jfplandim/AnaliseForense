@@ -5,7 +5,7 @@ import br.edu.icev.aed.forense.Alerta;
 import java.util.*;
 import java.io.IOException;
 
-public class Main implements AnaliseForenseAvancada{
+public class MinhaAnalise implements AnaliseForenseAvancada{
 
     // ----------------------------------------------------------------------
     // Desafio 1: Encontrar Sessões Inválidas (Exemplo de Estrutura)
