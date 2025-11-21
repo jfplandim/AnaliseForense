@@ -18,15 +18,20 @@ public class MinhaAnalise implements AnaliseForenseAvancada{
     public Set<String> encontrarSessoesInvalidas(String caminhoArquivo) throws IOException {
         Set<String> sessoesInvalidas = new HashSet<>();
 
-        Map<String, Deque<String>> pilhas = new HashMap<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(caminhoArquivo))) {
+        Map<String, Deque<String>> pilhas = new HashMap<>(2048);
+        try (BufferedReader br = new BufferedReader(new FileReader(caminhoArquivo), 32768)) {
             String linha = br.readLine();
             //processar cada linha
             while ((linha = br.readLine()) != null) {
-                String[] campos = linha.split(",", -1);
-                String userId = campos[1];
-                String sessionId = campos[2];
-                String action = campos[3];
+                //uso do indexOf em vez do split para otimização da leitura
+                int p1 = linha.indexOf(',');
+                int p2 = linha.indexOf(',', p1 + 1);
+                int p3 = linha.indexOf(',', p2 + 1);
+                int p4 = linha.indexOf(',', p3 + 1);
+
+                String userId = linha.substring(p1 + 1, p2);
+                String sessionId = linha.substring(p2 + 1, p3);
+                String action = linha.substring(p3 + 1, p4);
 
                 Deque<String> pilha = pilhas.get(userId);
                 //adicionar pilha do usuario e fazer as verificações
