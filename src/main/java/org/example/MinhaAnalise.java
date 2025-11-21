@@ -19,41 +19,37 @@ public class MinhaAnalise implements AnaliseForenseAvancada{
     @Override
     public Set<String> encontrarSessoesInvalidas(String caminhoArquivo) throws IOException {
         List<Alerta> logs = leitura.getAlertas(caminhoArquivo);
-
-
         Set<String> sessoesInvalidas = new HashSet<>();
-
         Map<String, Deque<String>> pilhas = new HashMap<>(2048);
+
         for (Alerta a: logs){
+            String userId = a.getUserId();
+            String sessionId = a.getSessionId();
+            String actionId = a.getActionType();
 
-            String user = a.getUserId();
-            String session = a.getSessionId();
-            String action = a.getActionType();
-
-
-            Deque<String> pilha = pilhas.get(user);
+            Deque<String> pilha = pilhas.get(userId);
                 //adicionar pilha do usuario e fazer as verificações
                 if (pilha == null) {
                     pilha = new ArrayDeque<>();
-                    pilhas.put(user, pilha);
+                    pilhas.put(userId, pilha);
                 }
                 //logica do login
-                if (action.equals("LOGIN")) {
+                if (actionId.equals("LOGIN")) {
 
                     if (!pilha.isEmpty()) {
-                        sessoesInvalidas.add(session);
+                        sessoesInvalidas.add(sessionId);
                     }
-                    pilha.push(session);
+                    pilha.push(sessionId);
                 }
                 //logica do logout
-                else if (action.equals("LOGOUT")) {
+                else if (actionId.equals("LOGOUT")) {
                     //se a pilha ta vazia
                     if (pilha.isEmpty()) {
-                        sessoesInvalidas.add(session);
+                        sessoesInvalidas.add(sessionId);
                     }
                     else {
-                        if (!pilha.peek().equals(session)) {
-                            sessoesInvalidas.add(session);
+                        if (!pilha.peek().equals(sessionId)) {
+                            sessoesInvalidas.add(sessionId);
                         }
                         else {
                             pilha.pop();
