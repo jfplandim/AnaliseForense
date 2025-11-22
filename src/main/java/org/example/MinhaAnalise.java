@@ -8,6 +8,12 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
 public class MinhaAnalise implements AnaliseForenseAvancada {
 
     private final LeituraCSV leitura = new LeituraCSV();
@@ -71,11 +77,15 @@ public class MinhaAnalise implements AnaliseForenseAvancada {
 
     @Override
     public List<String> reconstruirLinhaTempo(String caminhoArquivo, String sessionId) throws IOException {
-        List<String> linhaTempo = new ArrayList<>();
+        List<Alerta> logs = lerAlertas(caminhoArquivo);
+        Queue<String> linhaTempo=new ArrayDeque<>();
 
-        //resolução desafio
-
-        return linhaTempo;
+        for (Alerta alerta: logs){
+            if (alerta.getSessionId().equals(sessionId)){
+                linhaTempo.add(alerta.getActionType());
+            }
+        }
+        return new ArrayList<>(linhaTempo);
     }
 
     // ----------------------------------------------------------------------
