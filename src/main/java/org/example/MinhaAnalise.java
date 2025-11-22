@@ -96,10 +96,28 @@ public class MinhaAnalise implements AnaliseForenseAvancada {
 
     @Override
     public Map<Long, Long> encontrarPicosTransferencia(String caminhoArquivo) throws IOException {
+        //pegar todos os alertas
+        List<Alerta> eventos = leitura.getAlertas(caminhoArquivo);
 
-        //resolução desafio
+        Map<Long, Long> resultado = new HashMap<>();
+        Stack<Alerta> pilha = new Stack<>();
+        //loop invertido
+        for (int i = eventos.size() - 1; i >= 0; i--) {
+            Alerta atual = eventos.get(i);
 
-        return new HashMap<>();
+            // enquanto o topo da pilha tiver bytes <= bytes do atual vai desempilhe
+            while (!pilha.isEmpty() && pilha.peek().getBytesTransferred() <= atual.getBytesTransferred()) {
+                pilha.pop();
+            }
+            //se sobrou algo na pilha
+            if (!pilha.isEmpty()) {
+                resultado.put(atual.getTimestamp(), pilha.peek().getTimestamp());
+            }
+            pilha.push(atual);
+
+        }
+
+        return resultado;
     }
 
     // ----------------------------------------------------------------------
