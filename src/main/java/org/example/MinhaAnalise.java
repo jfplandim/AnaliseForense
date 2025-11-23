@@ -76,14 +76,14 @@ public class MinhaAnalise implements AnaliseForenseAvancada {
     @Override
     public List<String> reconstruirLinhaTempo(String caminhoArquivo, String sessionId) throws IOException {
         List<Alerta> logs = lerAlertas(caminhoArquivo);
-        Queue<String> linhaTempo=new ArrayDeque<>();
+        List<String> linhaTempo = new ArrayList<>();
 
         for (Alerta alerta: logs){
             if (alerta.getSessionId().equals(sessionId)){
                 linhaTempo.add(alerta.getActionType());
             }
         }
-        return new ArrayList<>(linhaTempo);
+        return linhaTempo;
     }
 
     // ----------------------------------------------------------------------
@@ -93,9 +93,29 @@ public class MinhaAnalise implements AnaliseForenseAvancada {
     @Override
     public List<Alerta> priorizarAlertas(String caminhoArquivo, int n) throws IOException {
 
-        //resolução desafio
+        if (n<=0){
+            return Collections.emptyList();
+        }
 
-        return new ArrayList<>();
+        List<Alerta> logs=lerAlertas(caminhoArquivo);
+        if (logs.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        PriorityQueue<Alerta> alertasPrioritarios=new PriorityQueue<>((a1,a2)->Integer.compare(a2.nivelSeveridade,a1.nivelSeveridade));
+alertasPrioritarios.addAll(logs);
+List<Alerta> resultados=new ArrayList<>(n);
+
+for (int i=0;i<n;i++){
+    Alerta alerta = alertasPrioritarios.poll();
+    if (alerta ==null){
+        break;
+    }
+    resultados.add(alerta);
+}
+
+
+        return resultados;
     }
 
     // ----------------------------------------------------------------------
