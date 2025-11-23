@@ -102,11 +102,11 @@ public class MinhaAnalise implements AnaliseForenseAvancada {
             return Collections.emptyList();
         }
 
-        PriorityQueue<Alerta> alertasPrioritarios=new PriorityQueue<>((a1,a2)->Integer.compare(a2.nivelSeveridade,a1.nivelSeveridade));
+        PriorityQueue<Alerta> alertasPrioritarios=new PriorityQueue<>((a1,a2)->Integer.compare(a2.getSeverityLevel(),a1.getSeverityLevel()));
 alertasPrioritarios.addAll(logs);
 List<Alerta> resultados=new ArrayList<>(n);
 
-for (int i=0;i<n;i++){
+for (int i=0;i<n&&!alertasPrioritarios.isEmpty();i++){
     Alerta alerta = alertasPrioritarios.poll();
     if (alerta ==null){
         break;
