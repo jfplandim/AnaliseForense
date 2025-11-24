@@ -135,107 +135,88 @@ public class MinhaAnalise implements AnaliseForenseAvancada {
 
     @Override
     public Optional<List<String>> rastrearContaminacao(String caminhoArquivo, String recursoInicial, String recursoAlvo) throws IOException {
-        List<Alerta> logs = lerAlertas(caminhoArquivo);
+        List<Alerta> logs = leitura.getAlertas(caminhoArquivo);
 
-        // Caso especial: inicial == alvo
         if (recursoInicial.equals(recursoAlvo)) {
-            boolean recursoExiste = logs.stream()
-                    .anyMatch(alerta -> alerta.getTargetResource().equals(recursoInicial));
-            if (recursoExiste) {
-                return Optional.of(Collections.singletonList(recursoInicial));
-            } else {
-                return Optional.empty();
+            for (int i = 0; i < logs.size(); i++) {
+                if (recursoInicial.equals(logs.get(i).getTargetResource())) {
+                    return Optional.of(Collections.singletonList(recursoInicial));
+                }
             }
+            return Optional.empty();
         }
 
         Map<String, List<String>> grafo = construirGrafo(logs);
-
-        // Recurso inicial não existe
-        if (!grafo.containsKey(recursoInicial)) {
-            return Optional.empty();
-        }
+        if (!grafo.containsKey(recursoInicial)) return Optional.empty();
 
         return executarBFS(grafo, recursoInicial, recursoAlvo);
     }
 
-    private List<Alerta> lerAlertas(String caminhoArquivo) throws IOException {
-        LeituraCSV leitor = new LeituraCSV();
-        return leitor.getAlertas(caminhoArquivo);
-    }
-
     private Map<String, List<String>> construirGrafo(List<Alerta> logs) {
-        Map<String, List<String>> grafo = new HashMap<>();
-        Map<String, List<Alerta>> logsPorSessao = new HashMap<>();
+        Map<String, List<Alerta>> sessions = new HashMap<>(1024);
 
-        for (Alerta alerta : logs) {
-            String sessionId = alerta.getSessionId();
-            logsPorSessao.computeIfAbsent(sessionId, k -> new ArrayList<>()).add(alerta);
+        for (int i = 0; i < logs.size(); i++) {
+            Alerta a = logs.get(i);
+            sessions.computeIfAbsent(a.getSessionId(), k -> new ArrayList<>(16)).add(a);
         }
 
-        for (Map.Entry<String, List<Alerta>> entry : logsPorSessao.entrySet()) {
-            List<Alerta> sessao = entry.getValue();
-            sessao.sort(Comparator.comparingLong(Alerta::getTimestamp));
+        Map<String, List<String>> grafo = new HashMap<>(sessions.size() * 2);
 
-            for (int i = 0; i < sessao.size() - 1; i++) {
-                String recursoA = sessao.get(i).getTargetResource();
-                String recursoB = sessao.get(i + 1).getTargetResource();
-                grafo.computeIfAbsent(recursoA, k -> new ArrayList<>()).add(recursoB);
+        for (List<Alerta> sessao : sessions.values()) {
+            if (sessao.size() > 1) {
+                sessao.sort((a, b) -> Long.compare(a.getTimestamp(), b.getTimestamp()));
             }
 
-            for (Alerta alerta : sessao) {
-                grafo.putIfAbsent(alerta.getTargetResource(), new ArrayList<>());
+            for (int i = 0; i < sessao.size() - 1; i++) {
+                String a = sessao.get(i).getTargetResource();
+                String b = sessao.get(i + 1).getTargetResource();
+                grafo.computeIfAbsent(a, k -> new ArrayList<>(4)).add(b);
+            }
+
+            for (int i = 0; i < sessao.size(); i++) {
+                grafo.putIfAbsent(sessao.get(i).getTargetResource(), new ArrayList<>(0));
             }
         }
 
         return grafo;
     }
 
-    private Optional<List<String>> executarBFS(
-            Map<String, List<String>> grafo,
-            String inicio,
-            String alvo) {
-        Queue<String> fila = new LinkedList<>();
+    private Optional<List<String>> executarBFS(Map<String, List<String>> grafo, String inicio, String alvo) {
+        ArrayDeque<String> fila = new ArrayDeque<>(256);
         fila.add(inicio);
 
-        Map<String, String> predecessor = new HashMap<>();
-        predecessor.put(inicio, null);
+        Map<String, String> pred = new HashMap<>(grafo.size());
+        pred.put(inicio, null);
 
-        Set<String> visitados = new HashSet<>();
+        Set<String> visitados = new HashSet<>(grafo.size());
         visitados.add(inicio);
 
         while (!fila.isEmpty()) {
             String atual = fila.poll();
 
             if (atual.equals(alvo)) {
-                return Optional.of(reconstruirCaminho(predecessor, inicio, alvo));
+                List<String> caminho = new ArrayList<>(32);
+                while (atual != null) {
+                    caminho.add(atual);
+                    atual = pred.get(atual);
+                }
+                Collections.reverse(caminho);
+                return Optional.of(caminho);
             }
 
-            List<String> vizinhos = grafo.getOrDefault(atual, Collections.emptyList());
-            for (String vizinho : vizinhos) {
-                if (!visitados.contains(vizinho)) {
-                    visitados.add(vizinho);
-                    predecessor.put(vizinho, atual);
-                    fila.add(vizinho);
+            List<String> vizinhos = grafo.get(atual);
+            if (vizinhos != null) {
+                for (int i = 0; i < vizinhos.size(); i++) {
+                    String viz = vizinhos.get(i);
+                    if (!visitados.contains(viz)) {
+                        visitados.add(viz);
+                        pred.put(viz, atual);
+                        fila.add(viz);
+                    }
                 }
             }
         }
 
         return Optional.empty();
-    }
-
-    private List<String> reconstruirCaminho(
-            Map<String, String> predecessor,
-            String inicio,
-            String alvo) {
-        List<String> caminho = new ArrayList<>();
-        String atual = alvo;
-
-        while (atual != null) {
-            caminho.add(atual);
-            atual = predecessor.get(atual);
-        }
-
-        Collections.reverse(caminho);
-        return caminho;
     }
 }
