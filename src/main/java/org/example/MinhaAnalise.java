@@ -8,6 +8,10 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 
+
+import java.util.ArrayList;
+import java.util.List;
+
 public class MinhaAnalise implements AnaliseForenseAvancada {
 
     private final LeituraCSV leitura = new LeituraCSV();
@@ -71,10 +75,14 @@ public class MinhaAnalise implements AnaliseForenseAvancada {
 
     @Override
     public List<String> reconstruirLinhaTempo(String caminhoArquivo, String sessionId) throws IOException {
+        List<Alerta> logs = lerAlertas(caminhoArquivo);
         List<String> linhaTempo = new ArrayList<>();
 
-        //resolução desafio
-
+        for (Alerta alerta: logs){
+            if (alerta.getSessionId().equals(sessionId)){
+                linhaTempo.add(alerta.getActionType());
+            }
+        }
         return linhaTempo;
     }
 
@@ -85,9 +93,29 @@ public class MinhaAnalise implements AnaliseForenseAvancada {
     @Override
     public List<Alerta> priorizarAlertas(String caminhoArquivo, int n) throws IOException {
 
-        //resolução desafio
+        if (n<=0){
+            return Collections.emptyList();
+        }
 
-        return new ArrayList<>();
+        List<Alerta> logs=lerAlertas(caminhoArquivo);
+        if (logs.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        PriorityQueue<Alerta> alertasPrioritarios=new PriorityQueue<>((a1,a2)->Integer.compare(a2.getSeverityLevel(),a1.getSeverityLevel()));
+alertasPrioritarios.addAll(logs);
+List<Alerta> resultados=new ArrayList<>(n);
+
+for (int i=0;i<n&&!alertasPrioritarios.isEmpty();i++){
+    Alerta alerta = alertasPrioritarios.poll();
+    if (alerta ==null){
+        break;
+    }
+    resultados.add(alerta);
+}
+
+
+        return resultados;
     }
 
     // ----------------------------------------------------------------------
@@ -96,10 +124,28 @@ public class MinhaAnalise implements AnaliseForenseAvancada {
 
     @Override
     public Map<Long, Long> encontrarPicosTransferencia(String caminhoArquivo) throws IOException {
+        //pegar todos os alertas
+        List<Alerta> eventos = leitura.getAlertas(caminhoArquivo);
 
-        //resolução desafio
+        Map<Long, Long> resultado = new HashMap<>();
+        Stack<Alerta> pilha = new Stack<>();
+        //loop invertido
+        for (int i = eventos.size() - 1; i >= 0; i--) {
+            Alerta atual = eventos.get(i);
 
-        return new HashMap<>();
+            // enquanto o topo da pilha tiver bytes <= bytes do atual vai desempilhe
+            while (!pilha.isEmpty() && pilha.peek().getBytesTransferred() <= atual.getBytesTransferred()) {
+                pilha.pop();
+            }
+            //se sobrou algo na pilha
+            if (!pilha.isEmpty()) {
+                resultado.put(atual.getTimestamp(), pilha.peek().getTimestamp());
+            }
+            pilha.push(atual);
+
+        }
+
+        return resultado;
     }
 
     // ----------------------------------------------------------------------
