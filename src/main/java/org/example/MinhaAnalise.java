@@ -56,15 +56,20 @@ public class MinhaAnalise implements AnaliseForenseAvancada {
 
     @Override
     public List<String> reconstruirLinhaTempo(String caminhoArquivo, String sessionId) throws IOException {
-        List<Alerta> logs = lerAlertas(caminhoArquivo);
-        List<String> linhaTempo = new ArrayList<>();
+        List<Alerta> logs = leitura.getAlertas(caminhoArquivo);
 
-        for (Alerta alerta: logs){
-            if (alerta.getSessionId().equals(sessionId)){
-                linhaTempo.add(alerta.getActionType());
+        Queue<String> fila = new LinkedList<>();
+
+        for (Alerta alerta:logs) {
+            if (Objects.equals(alerta.getSessionId(),sessionId)) {
+                fila.offer(alerta.getActionType());
             }
         }
-        return linhaTempo;
+        List<String>timeline=new ArrayList<>(fila.size());
+        while (!fila.isEmpty()){
+            timeline.add(fila.poll());
+        }
+        return timeline;
     }
 
     // ----------------------------------------------------------------------
@@ -73,30 +78,22 @@ public class MinhaAnalise implements AnaliseForenseAvancada {
 
     @Override
     public List<Alerta> priorizarAlertas(String caminhoArquivo, int n) throws IOException {
+        if (n <= 0) return Collections.emptyList();
 
-        if (n<=0){
-            return Collections.emptyList();
+        List<Alerta> logs = leitura.getAlertas(caminhoArquivo);
+        if (logs.isEmpty()) return Collections.emptyList();
+
+        PriorityQueue<Alerta> pq = new PriorityQueue<>(logs.size(), Comparator.comparingInt(Alerta::getSeverityLevel).reversed());
+        pq.addAll(logs);
+
+        int size = Math.min(n, pq.size());
+        List<Alerta> result = new ArrayList<>(size);
+
+        for (int i = 0; i < size; i++) {
+            result.add(pq.poll());
         }
 
-        List<Alerta> logs=lerAlertas(caminhoArquivo);
-        if (logs.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        PriorityQueue<Alerta> alertasPrioritarios=new PriorityQueue<>((a1,a2)->Integer.compare(a2.getSeverityLevel(),a1.getSeverityLevel()));
-alertasPrioritarios.addAll(logs);
-List<Alerta> resultados=new ArrayList<>(n);
-
-for (int i=0;i<n&&!alertasPrioritarios.isEmpty();i++){
-    Alerta alerta = alertasPrioritarios.poll();
-    if (alerta ==null){
-        break;
-    }
-    resultados.add(alerta);
-}
-
-
-        return resultados;
+        return result;
     }
 
     // ----------------------------------------------------------------------
