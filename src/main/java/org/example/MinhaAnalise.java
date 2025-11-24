@@ -132,35 +132,8 @@ public class MinhaAnalise implements AnaliseForenseAvancada {
     }
 
     private List<Alerta> lerAlertas(String caminhoArquivo) throws IOException {
-        List<Alerta> alertas = new ArrayList<>();
-        List<String> linhas = Files.readAllLines(Paths.get(caminhoArquivo));
-
-        for (int i = 1; i < linhas.size(); i++) {
-            String linha = linhas.get(i).trim();
-            if (linha.isEmpty()) continue;
-
-            String[] campos = linha.split(",");
-            if (campos.length >= 7) {
-                try {
-                    long alertId = Long.parseLong(campos[0].trim());
-                    int severity = Integer.parseInt(campos[5].trim());
-                    long timestamp = Long.parseLong(campos[6].trim());
-
-                    alertas.add(new Alerta(
-                            alertId,
-                            campos[1].trim(),
-                            campos[2].trim(),
-                            campos[3].trim(),
-                            campos[4].trim(),
-                            severity,
-                            timestamp
-                    ));
-                } catch (NumberFormatException e) {
-                    // Ignora linha com números inválidos
-                }
-            }
-        }
-        return alertas;
+        LeituraCSV leitor = new LeituraCSV();
+        return leitor.getAlertas(caminhoArquivo);
     }
 
     private Map<String, List<String>> construirGrafo(List<Alerta> logs) {
