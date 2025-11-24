@@ -9,18 +9,25 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class LeituraCSV {
-    private List<Alerta> alertas;
-    private boolean carregado = false;
+    private String ultimoCaminho = null;
+    private List<Alerta> cache = null;
 
     public List<Alerta> getAlertas(String caminhoArquivo) throws IOException {
-        if (carregado) return alertas;
+        // Cache simples e rápido
+        if (cache != null && caminhoArquivo != null && caminhoArquivo.equals(ultimoCaminho)) {
+            return cache;
+        }
 
-        alertas = new ArrayList<>(500_000);
+        List<Alerta> alertas = new ArrayList<>(500_000);
 
-        try (BufferedReader br = new BufferedReader(new FileReader(caminhoArquivo), 32768)) {
-            String linha = br.readLine(); // pula header
+        try (BufferedReader br = new BufferedReader(new FileReader(caminhoArquivo), 65536)) {
+            br.readLine(); // Pula header
+            String linha;
 
             while ((linha = br.readLine()) != null) {
+                int len = linha.length();
+                if (len < 10) continue; // Linha muito curta
+
                 int p1 = linha.indexOf(',');
                 int p2 = linha.indexOf(',', p1 + 1);
                 int p3 = linha.indexOf(',', p2 + 1);
@@ -28,24 +35,26 @@ public class LeituraCSV {
                 int p5 = linha.indexOf(',', p4 + 1);
                 int p6 = linha.indexOf(',', p5 + 1);
 
-                // Ordem correta conforme header CSV:
-                // ALERT_ID, USER_ID, IP_ADDRESS, SESSION_ID, TARGET_RESOURCE, SEVERITY, TIMESTAMP
-                long alertId = Long.parseLong(linha.substring(0, p1));
-                String userId = linha.substring(p1 + 1, p2);
-                String ipAddress = linha.substring(p2 + 1, p3);
-                String sessionId = linha.substring(p3 + 1, p4);
-                String targetResource = linha.substring(p4 + 1, p5);
-                int severity = Integer.parseInt(linha.substring(p5 + 1, p6));
-                long timestamp = Long.parseLong(linha.substring(p6 + 1));
+                if (p6 == -1) continue; //linha incompleta
 
-                alertas.add(new Alerta(
-                        alertId, userId, ipAddress, sessionId,
-                        targetResource, severity, timestamp
-                ));
+                try {
+                    alertas.add(new Alerta(
+                            Long.parseLong(linha, 0, p1, 10),
+                            linha.substring(p1 + 1, p2),
+                            linha.substring(p2 + 1, p3),
+                            linha.substring(p3 + 1, p4),
+                            linha.substring(p4 + 1, p5),
+                            Integer.parseInt(linha, p5 + 1, p6, 10),
+                            Long.parseLong(linha, p6 + 1, len, 10)
+                    ));
+                } catch (NumberFormatException | IndexOutOfBoundsException e) {
+                    // Ignora linha com erro
+                }
             }
         }
 
-        carregado = true;
+        ultimoCaminho = caminhoArquivo;
+        cache = alertas;
         return alertas;
     }
 }
