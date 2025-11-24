@@ -49,7 +49,7 @@ public class MinhaAnalise implements AnaliseForenseAvancada {
 
         return invalidas;
     }
-
+//
     // ----------------------------------------------------------------------
     // Desafio 2: Reconstruir Linha do Tempo
     // ----------------------------------------------------------------------
