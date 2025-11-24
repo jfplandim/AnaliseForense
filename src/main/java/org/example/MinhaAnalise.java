@@ -4,69 +4,50 @@ import br.edu.icev.aed.forense.Alerta;
 import br.edu.icev.aed.forense.AnaliseForenseAvancada;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.*;
-
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class MinhaAnalise implements AnaliseForenseAvancada {
 
     private final LeituraCSV leitura = new LeituraCSV();
 
-    // ----------------------------------------------------------------------
-    // Desafio 1: Encontrar Sessões Inválidas
-    // ----------------------------------------------------------------------
-
     @Override
     public Set<String> encontrarSessoesInvalidas(String caminhoArquivo) throws IOException {
         List<Alerta> logs = leitura.getAlertas(caminhoArquivo);
-        Set<String> sessoesInvalidas = new HashSet<>();
-        Map<String, Deque<String>> pilhas = new HashMap<>(2048);
+        Set<String> invalidas = new HashSet<>(1024);
+        //map: userId -> pilha de sessionId
+        Map<String, ArrayDeque<String>> pilhas = new HashMap<>(2048);
 
-        for (Alerta a: logs){
+        for (int i = 0; i < logs.size(); i++) {
+            Alerta a = logs.get(i);
             String userId = a.getUserId();
             String sessionId = a.getSessionId();
-            String actionId = a.getActionType();
+            String action = a.getActionType();
 
-            Deque<String> pilha = pilhas.get(userId);
-                //adicionar pilha do usuario e fazer as verificações
-                if (pilha == null) {
-                    pilha = new ArrayDeque<>();
-                    pilhas.put(userId, pilha);
-                }
-                //logica do login
-                if (actionId.equals("LOGIN")) {
+            ArrayDeque<String> pilha = pilhas.get(userId);
+            if (pilha == null) {
+                pilha = new ArrayDeque<>(8);
+                pilhas.put(userId, pilha);
+            }
 
-                    if (!pilha.isEmpty()) {
-                        sessoesInvalidas.add(sessionId);
-                    }
-                    pilha.push(sessionId);
+            if ("LOGIN".equals(action)) {
+                //login aninha é invalido
+                if (!pilha.isEmpty()) invalidas.add(sessionId);
+                pilha.push(sessionId);
+            } else if ("LOGOUT".equals(action)) {
+                //logout sem login correspondente é invalido
+                if (pilha.isEmpty() || !sessionId.equals(pilha.peek())) {
+                    invalidas.add(sessionId);
+                } else {
+                    pilha.pop();
                 }
-                //logica do logout
-                else if (actionId.equals("LOGOUT")) {
-                    //se a pilha ta vazia
-                    if (pilha.isEmpty()) {
-                        sessoesInvalidas.add(sessionId);
-                    } else {
-                        if (!pilha.peek().equals(sessionId)) {
-                            sessoesInvalidas.add(sessionId);
-                        } else {
-                            pilha.pop();
-                        }
-                    }
-                }
-        }
-
-        //sessoes que ficaram abertas
-        for (Deque<String> pilha : pilhas.values()) {
-            while (!pilha.isEmpty()) {
-                sessoesInvalidas.add(pilha.pop());
             }
         }
-        return sessoesInvalidas;
+        //sessões que ficaram abertas são invalidas
+        for (ArrayDeque<String> pilha : pilhas.values()) {
+            invalidas.addAll(pilha);
+        }
+
+        return invalidas;
     }
 
     // ----------------------------------------------------------------------
@@ -124,25 +105,28 @@ for (int i=0;i<n&&!alertasPrioritarios.isEmpty();i++){
 
     @Override
     public Map<Long, Long> encontrarPicosTransferencia(String caminhoArquivo) throws IOException {
-        //pegar todos os alertas
         List<Alerta> eventos = leitura.getAlertas(caminhoArquivo);
 
-        Map<Long, Long> resultado = new HashMap<>();
-        Stack<Alerta> pilha = new Stack<>();
-        //loop invertido
+        // Filtrar inline para evitar lista intermediária
+        Map<Long, Long> resultado = new HashMap<>(eventos.size() / 2);
+        // pilha mantem eventos em ordem decrescente de bytes
+        ArrayDeque<Alerta> pilha = new ArrayDeque<>(1024);
+        //itera em ordem reversa
         for (int i = eventos.size() - 1; i >= 0; i--) {
             Alerta atual = eventos.get(i);
+            long bytes = atual.getBytesTransferred();
 
-            // enquanto o topo da pilha tiver bytes <= bytes do atual vai desempilhe
-            while (!pilha.isEmpty() && pilha.peek().getBytesTransferred() <= atual.getBytesTransferred()) {
+            if (bytes <= 0) continue; // Filtro inline
+            //remove elementos menores/iguais
+            while (!pilha.isEmpty() && pilha.peek().getBytesTransferred() <= bytes) {
                 pilha.pop();
             }
-            //se sobrou algo na pilha
+            //se a pilha esta vazia, o topo é o proximo maior
             if (!pilha.isEmpty()) {
                 resultado.put(atual.getTimestamp(), pilha.peek().getTimestamp());
             }
-            pilha.push(atual);
 
+            pilha.push(atual);
         }
 
         return resultado;
